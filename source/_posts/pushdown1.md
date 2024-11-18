@@ -45,15 +45,15 @@ SELECT * FROM user WHERE city = 'Shijiazhuang' and (age < 30 or last_login > '20
 
 ```
 people: 
-	- file0 metadata: { "age": {"min": 11, "max": 20}, 
-						"city": {"min": "Aba", "max": "Luoyang"},
-						"last_login": {"min": "2024-06-30", "max": "2024-09-27"}}
-	- file1 metadata: { "age": {"min": 15, "max": 35}
-						"city": {"min": "Dalian", "max": "Zigong"},
-						"last_login": {"min": "2024-08-01", "max": "2024-10-01"}}
-	- file2 metadata: { "age": {"min": 31, "max": 40}
-						"city": {"min": "Guanzhou", "max": "Shenzhen"},
-						"last_login": {"min": "2024-8-30", "max": "2024-11-16"}}
+  - file0 metadata: { "age": {"min": 11, "max": 20},
+                      "city": {"min": "Aba", "max": "Luoyang"},
+                      "last_login": {"min": "2024-06-30", "max": "2024-09-27"}}
+  - file1 metadata: { "age": {"min": 15, "max": 35},
+                      "city": {"min": "Dalian", "max": "Zigong"},
+                      "last_login": {"min": "2024-08-01", "max": "2024-10-01"}}
+  - file2 metadata: { "age": {"min": 31, "max": 40},
+                      "city": {"min": "Guanzhou", "max": "Shenzhen"},
+                      "last_login": {"min": "2024-8-30", "max": "2024-11-16"}}
 ```
 
 对于`city = 'Shijiazhuang' and (age < 30 or last_login > '2024-11-11')` 这样的复杂谓词，我们将其看作一个二叉树：
