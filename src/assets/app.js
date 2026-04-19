@@ -7,7 +7,6 @@ const LANG_CHOICES = ["zh", "en"];
 const I18N = {
   zh: {
     skip_to_content: "跳到正文",
-    header_hint: "像 Emacs buffer 一样安静地记录工程笔记",
     nav_home: "首页",
     nav_archives: "归档",
     nav_tags: "标签",
@@ -18,7 +17,7 @@ const I18N = {
     lang_label: "语言",
     lang_zh: "中文",
     lang_en: "EN",
-    ml_major: "Blog-Web",
+    ml_major: "blog",
     epigraph_author: "六祖慧能",
     epigraph_translation: "",
     hero_subtitle: "记录数据系统、存储格式、查询优化和工程实践。",
@@ -40,11 +39,10 @@ const I18N = {
     return_home: "返回首页",
     not_found_title: "页面不存在",
     not_found_description: "你访问的页面不存在或已经移动。",
-    minibuffer_default: "M-x blog-open",
+    minibuffer_default: "new post: add content/posts/*.md, then npm run build",
   },
   en: {
     skip_to_content: "Skip to content",
-    header_hint: "Quiet engineering notes in an Emacs-like buffer",
     nav_home: "Home",
     nav_archives: "Archives",
     nav_tags: "Tags",
@@ -55,7 +53,7 @@ const I18N = {
     lang_label: "Lang",
     lang_zh: "中文",
     lang_en: "EN",
-    ml_major: "Blog-Web",
+    ml_major: "blog",
     epigraph_author: "Huineng",
     epigraph_translation: "Originally there is not a single thing - where could dust alight?",
     hero_subtitle: "Notes on data systems, storage formats, query optimization, and engineering practice.",
@@ -77,7 +75,7 @@ const I18N = {
     return_home: "Back home",
     not_found_title: "Page not found",
     not_found_description: "The page you visited does not exist or has moved.",
-    minibuffer_default: "M-x blog-open",
+    minibuffer_default: "new post: add content/posts/*.md, then npm run build",
   },
 };
 
@@ -165,18 +163,8 @@ function flashMinibuffer(message) {
   window.clearTimeout(flashMinibuffer.timer);
   flashMinibuffer.timer = window.setTimeout(() => {
     const lang = document.documentElement.getAttribute("data-lang") || "zh";
-    minibuffer.textContent = I18N[lang].minibuffer_default;
+    minibuffer.textContent = minibuffer.dataset.defaultMessage || I18N[lang].minibuffer_default;
   }, 1400);
-}
-
-function updateClock() {
-  const clock = document.getElementById("mode-clock");
-  if (!clock) return;
-  const now = new Date();
-  clock.textContent = now.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 }
 
 function init() {
@@ -203,9 +191,6 @@ function init() {
   };
 
   renderControls();
-  updateClock();
-  window.setInterval(updateClock, 30_000);
-
   themeBtn?.addEventListener("click", () => {
     const current = resolvedTheme(theme);
     theme = current === "dark" ? "light" : "dark";

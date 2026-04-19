@@ -126,10 +126,7 @@ body {
   margin: 0;
   font-family: var(--font-mono);
   color: var(--fg);
-  background:
-    linear-gradient(90deg, var(--fringe-bg) 0, var(--fringe-bg) var(--fringe), transparent var(--fringe)),
-    linear-gradient(270deg, var(--fringe-bg) 0, var(--fringe-bg) var(--fringe), transparent var(--fringe)),
-    var(--bg);
+  background: var(--bg);
   line-height: 1.65;
 }
 

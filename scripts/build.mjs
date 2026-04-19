@@ -219,6 +219,10 @@ function layout(site, options) {
     ogType = "website",
     titleEn,
     descriptionEn,
+    statusLeft = "blog",
+    statusCenter = canonicalPath,
+    statusRightHtml,
+    minibuffer = "content/posts/*.md -> npm run build",
   } = options;
   const canonical = absoluteUrl(site, canonicalPath);
   const pageTitle = title === site.title ? site.title : `${title} | ${site.title}`;
@@ -264,7 +268,7 @@ function layout(site, options) {
       <div class="header-line__left">
         <a class="buffer-name" href="/">*xiaogang-blog*</a>
         <span class="header-sep">-</span>
-        <span class="header-hint" data-i18n="header_hint">像 Emacs buffer 一样安静地记录工程笔记</span>
+        <span class="header-hint">📖, 🎬 and code</span>
       </div>
       ${navHtml(current)}
       <div class="header-line__right" aria-label="Controls">
@@ -280,14 +284,14 @@ ${body}
     <footer class="emacs-bars" role="contentinfo">
       <div class="mode-line">
         <div class="mode-line__left">
-          <span data-i18n="ml_major">Blog-Web</span>
+          <span data-i18n="ml_major">blog</span>
           <span class="mode-line__sep">:</span>
-          <a href="${escapeAttr(site.github)}" rel="me">GitHub</a>
+          <span>${escapeHtml(statusLeft)}</span>
         </div>
-        <div class="mode-line__center" id="mode-path">${escapeHtml(canonicalPath)}</div>
-        <div class="mode-line__right" id="mode-clock"></div>
+        <div class="mode-line__center" id="mode-path">${escapeHtml(statusCenter)}</div>
+        <div class="mode-line__right">${statusRightHtml ?? `<a href="/rss.xml">RSS</a><span class="mode-line__sep">|</span><a href="${escapeAttr(site.github)}" rel="me">GitHub</a>`}</div>
       </div>
-      <div class="minibuffer" id="minibuffer">M-x blog-open</div>
+      <div class="minibuffer" id="minibuffer" data-default-message="${escapeAttr(minibuffer)}">${escapeHtml(minibuffer)}</div>
     </footer>
   </body>
 </html>`;
@@ -387,6 +391,9 @@ function renderHome(site, posts, tagCounts, about) {
     canonicalPath: "/",
     current: "/",
     body,
+    statusLeft: "home",
+    statusCenter: `posts: ${posts.length} | tags: ${tagCounts.size} | latest: ${posts[0]?.date ?? "none"}`,
+    minibuffer: "new post: add content/posts/*.md, then npm run build",
   });
 }
 
@@ -421,6 +428,10 @@ ${post.html}
     current: "",
     body,
     ogType: "article",
+    statusLeft: "post",
+    statusCenter: `${post.date} | ${post.readingMinutes} min | ${post.tags.length ? post.tags.map((tag) => `#${tag}`).join(" ") : "untagged"}`,
+    statusRightHtml: `<a href="/archives/">archives</a><span class="mode-line__sep">|</span><a href="/tags/">tags</a>`,
+    minibuffer: `source: content/posts/${post.slug}.md`,
   });
 }
 
@@ -454,6 +465,9 @@ ${sections}`;
     canonicalPath: "/archives/",
     current: "/archives/",
     body,
+    statusLeft: "archives",
+    statusCenter: `posts: ${posts.length} | years: ${byYear.size}`,
+    minibuffer: "archive is generated from content/posts/*.md",
   });
 }
 
@@ -478,6 +492,9 @@ function renderTagsIndex(site, tagCounts) {
     canonicalPath: "/tags/",
     current: "/tags/",
     body,
+    statusLeft: "tags",
+    statusCenter: `tags: ${tagCounts.size} | posts: ${[...tagCounts.values()].reduce((sum, count) => sum + count, 0)}`,
+    minibuffer: "tags are generated from post front matter",
   });
 }
 
@@ -500,6 +517,10 @@ ${posts.map((post) => postCard(post)).join("\n")}
     canonicalPath: `/tags/${tagSlug(tag)}/`,
     current: "/tags/",
     body,
+    statusLeft: `tag:${tag}`,
+    statusCenter: `posts: ${posts.length}`,
+    statusRightHtml: `<a href="/tags/">all tags</a><span class="mode-line__sep">|</span><a href="/rss.xml">RSS</a>`,
+    minibuffer: `filter: #${tag}`,
   });
 }
 
@@ -522,6 +543,9 @@ ${about.html}
     canonicalPath: "/about/",
     current: "/about/",
     body,
+    statusLeft: "about",
+    statusCenter: "source: content/pages/about.md",
+    minibuffer: "edit about: content/pages/about.md",
   });
 }
 
@@ -539,6 +563,9 @@ function renderNotFound(site) {
     canonicalPath: "/404.html",
     current: "",
     body,
+    statusLeft: "404",
+    statusCenter: "not found",
+    statusRightHtml: `<a href="/">home</a><span class="mode-line__sep">|</span><a href="/archives/">archives</a>`,
   });
 }
 
