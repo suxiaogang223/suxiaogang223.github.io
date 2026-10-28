@@ -28,6 +28,11 @@ A photography website is a collection of webpages and images. When someone opens
 
 In this setup, **a GitHub repository stores the files, GitHub Actions prepares them for publishing, and GitHub Pages makes the website available to visitors.** The AI assistant helps you edit the site, process your photos, and upload the changes to your own repository. The build and publishing steps then run automatically.
 
+<figure>
+  <a href="/assets/images/github-pages-photography/hosting-pencil.webp" target="_blank" rel="noopener noreferrer"><img src="/assets/images/github-pages-photography/hosting-pencil.webp" width="1536" height="1024" alt="Pencil diagram showing website files uploaded from a laptop to GitHub, then served through GitHub Pages to visitors on a laptop and phone" loading="lazy" decoding="async" /></a>
+  <figcaption>Upload the website files to GitHub so people can visit through a web address. AI-generated illustration.</figcaption>
+</figure>
+
 Once the site is live, GitHub serves the files to visitors. Your computer can be switched off and the site will still work. You don't need to rent a server or keep the assistant running. You only need to return to the project when you want to add photos or make changes.
 
 ## Step 1: Create a GitHub account
@@ -59,6 +64,11 @@ Keep the originals in your photo library or on your drive. The website uses resi
 ## Step 3: Ask AI to help you build it
 
 Use an AI coding assistant that can read project files, edit them, and run programs on your computer. A regular chat window can explain what to do, but if it can't work with your files, you'll need to copy the code and run the commands yourself. An assistant with those tools makes the process easier for a beginner.
+
+<figure>
+  <a href="/assets/images/github-pages-photography/workflow-pencil.webp" target="_blank" rel="noopener noreferrer"><img src="/assets/images/github-pages-photography/workflow-pencil.webp" width="1536" height="1024" alt="Pencil workflow showing photo selection, help from an AI assistant, preview and editing, then publishing the photography website" loading="lazy" decoding="async" /></a>
+  <figcaption>Choose photos → build with AI → preview and adjust → publish. AI-generated illustration.</figcaption>
+</figure>
 
 Give it the prompt at the end of this article and tell it where your photos are. The reference project is:
 

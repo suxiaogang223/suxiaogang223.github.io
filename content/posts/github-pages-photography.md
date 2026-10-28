@@ -35,6 +35,11 @@ draft: false
 
 在这套方案里，**GitHub 的“仓库”负责保存文件，GitHub Actions 负责把它们整理成可以发布的网站，GitHub Pages 负责让别人通过网址访问。** AI 帮你修改网站、处理照片，再把更新上传到自己的仓库，后面的构建和发布就会自动进行。
 
+<figure>
+  <a href="/assets/images/github-pages-photography/hosting-pencil.webp" target="_blank" rel="noopener noreferrer"><img src="/assets/images/github-pages-photography/hosting-pencil.webp" width="1536" height="1024" alt="铅笔画示意：把电脑上的网页和照片上传到 GitHub，访客通过 GitHub Pages 在电脑和手机上浏览" loading="lazy" decoding="async" /></a>
+  <figcaption>把网站文件放到 GitHub，别人就能通过网址访问。示意图由 AI 生成。</figcaption>
+</figure>
+
 网站上线后，文件由 GitHub 提供给访客，所以关掉自己的电脑，别人依然可以打开。我们不需要自己租服务器，也不用让 AI 一直运行；只有想添加照片或修改网站时，才需要再打开项目。
 
 ## 第一步，注册一个 GitHub 账号
@@ -66,6 +71,11 @@ https://xiaoming.github.io/photography/
 ## 第三步，让 AI 帮你搭建
 
 你需要一个能读取项目、修改文件和运行程序的 AI 编程助手。普通的聊天窗口可以帮你解释，但如果它不能操作电脑上的文件，就需要你自己复制代码和执行命令。对新手来说，前一种更省事。
+
+<figure>
+  <a href="/assets/images/github-pages-photography/workflow-pencil.webp" target="_blank" rel="noopener noreferrer"><img src="/assets/images/github-pages-photography/workflow-pencil.webp" width="1536" height="1024" alt="铅笔画流程图：挑选照片，让 AI 协助搭建，预览和调整，再发布到网站" loading="lazy" decoding="async" /></a>
+  <figcaption>选照片 → 让 AI 帮忙搭建 → 预览调整 → 发布。示意图由 AI 生成。</figcaption>
+</figure>
 
 把文章最后的提示词发给它，再告诉它照片放在哪个文件夹。它会参考这个项目：
 
