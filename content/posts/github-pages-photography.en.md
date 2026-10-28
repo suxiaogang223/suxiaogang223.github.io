@@ -3,6 +3,8 @@ title: Build a Free Photography Website with GitHub Pages
 summary: Start with a GitHub account and a few favorite photos, then let an AI coding assistant help you build your own website. Includes a prompt you can copy and the limits of this free setup.
 ---
 
+> Live example: [my photography website, 目光所及](https://suxiaogang223.github.io/photography/). Have a look around before building your own.
+
 I've been taking more photos lately: street scenes, trips, and a few rolls of film. I wanted somewhere to put them together, choose a cover, arrange the sequence, and write a little about each outing.
 
 That's how my photography site, [目光所及](https://suxiaogang223.github.io/photography/), came about.

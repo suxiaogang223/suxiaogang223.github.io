@@ -10,6 +10,8 @@ tags:
 draft: false
 ---
 
+> 示例网站：[目光所及 · 我的摄影集](https://suxiaogang223.github.io/photography/)。可以先打开看看效果，再跟着下面的步骤搭建。
+
 最近拍了不少照片，有街头、旅行，也有一些胶片。我想把它们整理成一个摄影集，按自己的喜好选封面、排顺序，再写一点拍摄时的事情。
 
 于是有了[目光所及](https://suxiaogang223.github.io/photography/)。
