@@ -156,7 +156,7 @@ async function readSiteConfig() {
 async function readPosts() {
   const files = (await fs.readdir(postsDir)).filter((file) => file.endsWith(".md"));
   const posts = [];
-  for (const file of files) {
+  for (const file of files.filter((file) => !file.endsWith(".en.md"))) {
     const fullPath = path.join(postsDir, file);
     const raw = await fs.readFile(fullPath, "utf8");
     const parsed = matter(raw);
@@ -174,12 +174,25 @@ async function readPosts() {
     };
     post.url = postUrl(post);
     post.readingMinutes = readingTime(post.markdown);
+    const translationFile = file.replace(/\.md$/, ".en.md");
+    if (files.includes(translationFile)) {
+      const translation = matter(await fs.readFile(path.join(postsDir, translationFile), "utf8"));
+      post.titleEn = assertRequiredString(translation.data, "title", translationFile);
+      post.summaryEn = assertRequiredString(translation.data, "summary", translationFile);
+      post.htmlEn = marked.parse(translation.content.trim());
+      post.readingMinutesEn = readingTime(translation.content);
+    }
     posts.push(post);
   }
 
   return posts
     .filter((post) => !post.draft)
     .sort((a, b) => b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
+}
+
+function translatedText(zh, en) {
+  if (en === undefined) return escapeHtml(zh);
+  return `<span data-content-lang="zh" lang="zh-CN">${escapeHtml(zh)}</span><span data-content-lang="en" lang="en" hidden>${escapeHtml(en)}</span>`;
 }
 
 async function readAbout() {
@@ -305,10 +318,10 @@ function postCard(post, compact = false) {
   <div class="post-card__meta">
     <span data-i18n="published">${ui("published")}</span> ${escapeHtml(post.date)}
     <span class="dot">.</span>
-    ${post.readingMinutes} <span data-i18n="reading_time">${ui("readingTime")}</span>
+    ${translatedText(post.readingMinutes, post.readingMinutesEn)} <span data-i18n="reading_time">${ui("readingTime")}</span>
   </div>
-  <h3><a href="${post.url}">${escapeHtml(post.title)}</a></h3>
-  ${compact ? "" : `<p>${escapeHtml(post.summary)}</p>`}
+  <h3><a href="${post.url}">${translatedText(post.title, post.titleEn)}</a></h3>
+  ${compact ? "" : `<p>${translatedText(post.summary, post.summaryEn)}</p>`}
   <div class="post-card__footer">
     <a class="btn btn--ghost" href="${post.url}" data-i18n="read_post">${ui("readPost")}</a>
     <span class="tag-list">${tags}</span>
@@ -350,7 +363,7 @@ function renderHome(site, posts, tagCounts, about) {
   const recent = posts.slice(0, 5).map((post) => postCard(post)).join("\n");
   const archiveItems = posts
     .slice(0, 8)
-    .map((post) => `<li><time>${escapeHtml(post.date)}</time><a href="${post.url}">${escapeHtml(post.title)}</a></li>`)
+    .map((post) => `<li><time>${escapeHtml(post.date)}</time><a href="${post.url}">${translatedText(post.title, post.titleEn)}</a></li>`)
     .join("\n");
   const tagItems = [...tagCounts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -406,14 +419,14 @@ function renderPost(site, post) {
     <div class="post__meta">
       <span data-i18n="published">${ui("published")}</span> ${escapeHtml(post.date)}
       <span class="dot">.</span>
-      ${post.readingMinutes} <span data-i18n="reading_time">${ui("readingTime")}</span>
+      ${translatedText(post.readingMinutes, post.readingMinutesEn)} <span data-i18n="reading_time">${ui("readingTime")}</span>
     </div>
-    <h1>${escapeHtml(post.title)}</h1>
-    <p class="post__summary">${escapeHtml(post.summary)}</p>
+    <h1>${translatedText(post.title, post.titleEn)}</h1>
+    <p class="post__summary">${translatedText(post.summary, post.summaryEn)}</p>
     <div class="tag-list">${tags}</div>
   </header>
   <div class="prose">
-${post.html}
+${post.htmlEn ? `<div data-content-lang="zh" lang="zh-CN">${post.html}</div><div data-content-lang="en" lang="en" hidden>${post.htmlEn}</div>` : post.html}
   </div>
   <nav class="post-nav">
     <a class="btn btn--ghost" href="/" data-i18n="return_home">${ui("returnHome")}</a>
@@ -424,6 +437,8 @@ ${post.html}
   return layout(site, {
     title: post.title,
     description: post.summary,
+    titleEn: post.titleEn,
+    descriptionEn: post.summaryEn,
     canonicalPath: post.url,
     current: "",
     body,
@@ -446,7 +461,7 @@ function renderArchives(site, posts) {
     .map(([year, items]) => `<section class="section ${year === posts[0]?.date.slice(0, 4) ? "section--intro" : ""}">
   <h2>${escapeHtml(year)}</h2>
   <ul class="archive-list">
-${items.map((post) => `    <li><time>${escapeHtml(post.date)}</time><a href="${post.url}">${escapeHtml(post.title)}</a></li>`).join("\n")}
+${items.map((post) => `    <li><time>${escapeHtml(post.date)}</time><a href="${post.url}">${translatedText(post.title, post.titleEn)}</a></li>`).join("\n")}
   </ul>
 </section>`)
     .join("\n");

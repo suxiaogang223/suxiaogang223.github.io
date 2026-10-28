@@ -122,6 +122,10 @@ function applyLanguage(lang) {
   document.documentElement.setAttribute("lang", lang === "zh" ? "zh-CN" : "en");
   document.documentElement.setAttribute("data-lang", lang);
 
+  document.querySelectorAll("[data-content-lang]").forEach((node) => {
+    node.hidden = node.getAttribute("data-content-lang") !== lang;
+  });
+
   document.querySelectorAll("[data-page-title-zh][data-page-title-en]").forEach((node) => {
     const value = node.getAttribute(`data-page-title-${lang}`);
     if (!value) return;
@@ -168,7 +172,8 @@ function flashMinibuffer(message) {
 }
 
 function init() {
-  let lang = clamp(storageGet(LANG_STORAGE_KEY), LANG_CHOICES, detectLanguage());
+  const requestedLang = new URLSearchParams(window.location.search).get("lang");
+  let lang = clamp(requestedLang, LANG_CHOICES, clamp(storageGet(LANG_STORAGE_KEY), LANG_CHOICES, detectLanguage()));
   let theme = clamp(storageGet(THEME_STORAGE_KEY), THEME_CHOICES, resolvedTheme(null));
 
   const themeBtn = document.getElementById("theme-toggle");
@@ -203,6 +208,11 @@ function init() {
   langBtn?.addEventListener("click", () => {
     lang = lang === "zh" ? "en" : "zh";
     storageSet(LANG_STORAGE_KEY, lang);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("lang")) {
+      url.searchParams.set("lang", lang);
+      window.history.replaceState(null, "", url);
+    }
     applyLanguage(lang);
     renderControls();
     flashMinibuffer(langBtn.textContent);

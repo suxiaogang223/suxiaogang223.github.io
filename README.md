@@ -36,6 +36,8 @@ draft: false
 
 文章 URL 为 `/<yyyy>/<mm>/<dd>/<slug>/`。
 
+需要英文版时，在同一目录添加同名的 `*.en.md`（例如 `github-pages-photography.en.md`），front matter 填写英文 `title` 和 `summary`，正文写英文译文。两版共用原文章的日期、标签和 URL，不会重复计入文章数量。右上角语言按钮会同时切换文章正文、标题和摘要；在文章地址后添加 `?lang=en` 可以直接分享英文版。没有译文的文章保留原文。
+
 ## 本地构建
 
 ```bash
