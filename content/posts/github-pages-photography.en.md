@@ -114,7 +114,11 @@ This setup uses a public repository, GitHub's included website address, and the 
 
 **Your photos will be public.** Use this for work you want to share. People can view and save the display images in the repository. Even after you remove a photo, it may remain in older records or in copies other people have downloaded. Keep private photos elsewhere.
 
-**Storage is limited.** A published GitHub Pages site can be no larger than 1 GB. At 10 MB per original photo, around 100 photos would already approach that size. That's why the images need to be resized and compressed for the web. How many will fit depends on the actual file sizes; ask the assistant to check before publishing. Keep your own backups of the originals. GitHub isn't a place to back up your entire photo library. [Pages size limit](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits), [repository storage guidance](https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github).
+**Storage is limited.** A published GitHub Pages site can be no larger than 1 GB. At 10 MB per original photo, around 100 photos would already approach that size. [Pages size limit](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits).
+
+To fit more photos into that space, **I upload resized, compressed WebP copies rather than the original files.** For example, if a 10 MB original becomes 1 MB across all its display versions, the same space can hold about ten times as many photos—an order of magnitude more. That's an illustration, not a fixed compression ratio. The actual gain depends on the original file size, image dimensions, and compression settings. Count all versions, including thumbnails and large images, and ask the assistant to check the total before publishing.
+
+These copies are for viewing on the web and don't replace a backup of the originals. Keep those in your photo library or on your drive. GitHub isn't a place to back up your entire photo library. [Repository storage guidance](https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github).
 
 **Traffic and loading speed have limits, too.** GitHub Pages has a soft bandwidth limit of 100 GB per month. Loading speed can also vary by region and network. As your collection or audience grows, you can move the images to a dedicated storage service. [Bandwidth limits](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits).
 

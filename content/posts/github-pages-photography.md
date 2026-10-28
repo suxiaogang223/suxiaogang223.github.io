@@ -121,7 +121,11 @@ https://xiaoming.github.io/photography/
 
 **照片会公开。** 这套方案适合拿出来展示的作品。仓库里的展示图片可以被别人看到和保存，删除之后，旧记录或别人下载的副本也可能还在。不要把它当成私密相册。
 
-**空间有限。** GitHub Pages 发布的网站上限是 1 GB。一张原照片如果有 10 MB，100 张就接近这个大小了，所以需要先处理成适合网页展示的图片。能放多少张，取决于处理后的实际体积，让 AI 在每次发布前检查即可。原照片仍要自己备份，GitHub 不适合用来保存整个照片库。[容量限制](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)、[GitHub 存储建议](https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github)
+**空间有限。** GitHub Pages 发布的网站上限是 1 GB。一张原照片如果有 10 MB，100 张就接近这个大小了。[容量限制](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)
+
+为了在有限的空间里多放一些照片，**我没有上传原文件，而是把照片缩小、压缩成 WebP 格式后再上传。** 比如一张 10 MB 的原照片，处理后的全部展示版本合计如果只有 1 MB，同样的空间就能放约十倍的照片，也就是增加一个量级。这只是一个计算例子，实际提升取决于原文件大小、图片尺寸和压缩程度；统计时还要把缩略图、大图等不同版本加在一起，让 AI 在发布前检查即可。
+
+这些展示图用于网页观看，不能替代原片备份。原文件仍保留在自己的相册或硬盘里，GitHub 不适合用来保存整个照片库。[GitHub 存储建议](https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github)
 
 **访问速度和流量也有限。** GitHub Pages 每月带宽有 100 GB 的软限制，不同地区、不同网络打开图片的速度也可能不同。如果照片越来越多，或者访问量明显增加，可以再把图片搬到专门的图片存储服务。[流量限制](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)
 
