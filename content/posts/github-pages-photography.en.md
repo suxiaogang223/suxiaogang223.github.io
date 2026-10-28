@@ -20,6 +20,16 @@ I haven't rented a server or paid for image storage. The website and its resized
 
 If you'd like a site like this, you can ask an AI coding assistant to work from [my project](https://github.com/suxiaogang223/photography). You don't have to write the code yourself. Whenever you need to do something on your computer, ask it to walk you through that step.
 
+## A quick look at how it works
+
+> Not interested in the technical side? Feel free to skip this section and start with Step 1 below.
+
+A photography website is a collection of webpages and images. When someone opens its address, their browser loads those files and displays the text, layout, and photos.
+
+In this setup, **a GitHub repository stores the files, GitHub Actions prepares them for publishing, and GitHub Pages makes the website available to visitors.** The AI assistant helps you edit the site, process your photos, and upload the changes to your own repository. The build and publishing steps then run automatically.
+
+Once the site is live, GitHub serves the files to visitors. Your computer can be switched off and the site will still work. You don't need to rent a server or keep the assistant running. You only need to return to the project when you want to add photos or make changes.
+
 ## Step 1: Create a GitHub account
 
 **Do this first. Your website and photos will live under your own GitHub account.**
@@ -33,8 +43,6 @@ https://xiaoming.github.io/photography/
 ```
 
 Creating the account is free, and you don't need to buy this website address.
-
-GitHub is a place where people store code and work on it together. For this tutorial, think of it as somewhere to keep your website files. A “repository” is like a folder for the project. GitHub Pages turns those files into a website other people can visit.
 
 You can learn the terminology as you go. The important part is that **you use your own account and keep the website there.**
 
