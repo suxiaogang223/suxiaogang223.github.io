@@ -6,10 +6,10 @@ summary: 用同一订单的三次写入，解释路由、缓冲、版本合并�
 tags:
   - bigdata
   - Paimon
-draft: true
+draft: false
 ---
 
-> Paimon 系列。 [表的设计](/2026/11/09/paimon-table-design/) · [上一篇：表的查询流程](/2026/11/09/paimon-table-query/)
+> Paimon 系列。 [上一篇：表的查询流程](/2026/11/09/paimon-table-query/) · [下一篇：行标识与 Data Evolution](/2026/11/18/paimon-data-evolution/)
 
 第二篇从快照找到文件 A 和 B，再把订单 `123` 的多个版本归并成结果。这一篇回到文件产生之前：输入的记录怎样被整理，什么时候对查询可见，删除又怎样让旧行失效。
 
@@ -96,4 +96,4 @@ WHERE dt = '2026-10-08' AND id = 123;
 
 限制写入速度可以抑制积压，但会增加上游等待；增加或独立分配合并资源，则要承担额外计算成本和文件修改的协调工作。第一篇里的读写取舍，在持续运行时还要满足一个条件：长期的整理能力能跟上数据变化。 [异步合并](https://paimon.apache.org/docs/2.1/primary-key-table/compaction/#asynchronous-compaction)
 
-接下来转向行标识和 Data Evolution。本文用主键找到旧记录，再用文件内位置标记失效行；后面会进一步解释这些标识与 Row ID 的区别，以及给商品图片补充属性和向量时，怎样组织不同列的数据，为 BLOB、VARIANT、VECTOR 和索引建立基础。
+接下来转向行标识和 Data Evolution。本文用主键找到旧记录，再用文件内位置标记失效行；后面会进一步解释这些标识与 Row ID 的区别，以及给商品图片补充属性和向量时，怎样组织不同列的数据，为 BLOB、VARIANT、VECTOR 和索引建立基础。 [下一篇：行标识与 Data Evolution](/2026/11/18/paimon-data-evolution/)

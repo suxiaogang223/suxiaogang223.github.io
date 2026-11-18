@@ -6,7 +6,7 @@ summary: 沿着一条订单查询，串起快照、Manifest、分区和桶裁剪
 tags:
   - bigdata
   - Paimon
-draft: true
+draft: false
 ---
 
 > Paimon 系列。 [上一篇：表的设计](/2026/11/09/paimon-table-design/) · [下一篇：表的写入流程](/2026/11/09/paimon-table-write/)

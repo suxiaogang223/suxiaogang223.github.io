@@ -6,7 +6,7 @@ summary: 先认识 Schema、快照、Manifest 和数据文件的关系，再用�
 tags:
   - bigdata
   - Paimon
-draft: true
+draft: false
 ---
 
 > Paimon 系列。 [表的查询流程](/2026/11/09/paimon-table-query/) · [表的写入流程](/2026/11/09/paimon-table-write/)
