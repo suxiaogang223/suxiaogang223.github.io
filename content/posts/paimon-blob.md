@@ -1,6 +1,6 @@
 ---
 title: Paimon（五）BLOB：大对象文件的设计
-date: 2026-11-19
+date: "2026-11-19T09:05:00+08:00"
 slug: paimon-blob
 summary: 先用 SQL 写入和读取二进制内容，再解释 BLOB 条目、长度索引和文件尾怎样配合，以及批量存储、随机读取与空间回收之间的取舍。
 tags:

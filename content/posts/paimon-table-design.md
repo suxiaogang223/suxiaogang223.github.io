@@ -1,6 +1,6 @@
 ---
 title: Paimon（一）表的设计
-date: 2026-11-09
+date: "2026-11-09T09:01:00+08:00"
 slug: paimon-table-design
 summary: 从建表、写入和查询订单开始，认识 Schema、快照、Manifest 和数据文件，再比较表类型、主键表的 LSM 与读写取舍。
 tags:

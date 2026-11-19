@@ -1,6 +1,6 @@
 ---
 title: Paimon（三）表的写入流程
-date: 2026-11-09
+date: "2026-11-09T09:03:00+08:00"
 slug: paimon-table-write
 summary: 从订单的写入、删除和字段合并 SQL 出发，解释路由、缓冲、有序文件与快照提交，以及版本处理的性能取舍。
 tags:

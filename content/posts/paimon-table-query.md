@@ -1,6 +1,6 @@
 ---
 title: Paimon（二）表的查询流程
-date: 2026-11-09
+date: "2026-11-09T09:02:00+08:00"
 slug: paimon-table-query
 summary: 沿着一条订单查询，串起快照、Manifest、分区和桶裁剪、扫描任务，以及主键版本合并与过滤的顺序。
 tags:

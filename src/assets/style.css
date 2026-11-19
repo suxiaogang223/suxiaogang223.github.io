@@ -489,7 +489,7 @@ p {
 
 .archive-list li {
   display: grid;
-  grid-template-columns: 12ch minmax(0, 1fr);
+  grid-template-columns: 18ch minmax(0, 1fr);
   gap: 16px;
   padding: 9px 0;
   border-bottom: 1px solid var(--border);
@@ -498,6 +498,10 @@ p {
 .archive-list time,
 .muted {
   color: var(--subtle-fg);
+}
+
+.archive-list time {
+  white-space: nowrap;
 }
 
 .page-header,

@@ -1,6 +1,6 @@
 ---
 title: Paimon（六）VARIANT：灵活结构与列式读取
-date: 2026-11-19
+date: "2026-11-19T09:06:00+08:00"
 slug: paimon-variant
 summary: 先用 SQL 写入不同结构的对象并提取字段，再解释 VARIANT 的二进制表示、路径读取和 Shredding，以及灵活性、数据保真与查询效率之间的取舍。
 tags:

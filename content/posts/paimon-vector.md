@@ -1,6 +1,6 @@
 ---
 title: Paimon（七）VECTOR：向量表示与存储
-date: 2026-11-19
+date: "2026-11-19T09:07:00+08:00"
 slug: paimon-vector
 summary: 从建表、写入和查询向量的 SQL 出发，解释 VECTOR 的定长约束、距离度量和独立存储，以及维度、精度与读写成本之间的取舍。
 tags:

@@ -1,6 +1,6 @@
 ---
 title: Paimon（四）行标识与 Data Evolution
-date: 2026-11-18
+date: "2026-11-18T09:04:00+08:00"
 slug: paimon-data-evolution
 summary: 从建表、补充商品描述和查询结果出发，区分业务 ID、Row ID 和文件内位置，解释按列更新的收益与读写协调成本。
 tags:

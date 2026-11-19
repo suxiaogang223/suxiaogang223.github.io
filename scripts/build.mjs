@@ -80,11 +80,25 @@ function stripHtml(value = "") {
 }
 
 function normalizeDate(value, filename) {
-  if (value instanceof Date) return value.toISOString().slice(0, 10);
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return value;
+  const formatError = () => new Error(`${filename}: date must use YYYY-MM-DD or a quoted ISO timestamp with timezone, e.g. "2026-11-19T09:01:00+08:00"`);
+  if (value instanceof Date) {
+    const iso = value.toISOString();
+    if (!iso.endsWith("T00:00:00.000Z")) throw formatError();
+    value = iso.slice(0, 10);
   }
-  throw new Error(`${filename}: date must use YYYY-MM-DD`);
+  const match = typeof value === "string" && value.match(/^(\d{4}-\d{2}-\d{2})(?:T((?:[01]\d|2[0-3]):[0-5]\d)(:[0-5]\d)?(Z|[+-](?:[01]\d|2[0-3]):[0-5]\d))?$/);
+  if (!match) throw formatError();
+  const [, date, time, seconds, timezone] = match;
+  const publishedAt = time ? `${date}T${time}${seconds ?? ":00"}${timezone}` : `${date}T00:00:00Z`;
+  const publishedTimestamp = Date.parse(publishedAt);
+  if (!Number.isFinite(publishedTimestamp) || new Date(`${date}T00:00:00Z`).toISOString().slice(0, 10) !== date) {
+    throw formatError();
+  }
+  return { date, publishedAt, publishedTimestamp, displayDate: time ? `${date} ${time}` : date };
+}
+
+function postDate(post) {
+  return `<time datetime="${escapeAttr(post.publishedAt)}">${escapeHtml(post.displayDate)}</time>`;
 }
 
 function assertRequiredString(data, field, filename) {
@@ -164,7 +178,7 @@ async function readPosts() {
     const post = {
       sourcePath: fullPath,
       title: assertRequiredString(data, "title", file),
-      date: normalizeDate(data.date, file),
+      ...normalizeDate(data.date, file),
       slug: assertRequiredString(data, "slug", file),
       summary: assertRequiredString(data, "summary", file),
       tags: Array.isArray(data.tags) ? data.tags.map(String).filter(Boolean) : [],
@@ -187,7 +201,7 @@ async function readPosts() {
 
   return posts
     .filter((post) => !post.draft)
-    .sort((a, b) => b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
+    .sort((a, b) => b.publishedTimestamp - a.publishedTimestamp || a.slug.localeCompare(b.slug));
 }
 
 function translatedText(zh, en) {
@@ -316,7 +330,7 @@ function postCard(post, compact = false) {
     .join(" ");
   return `<article class="post-card">
   <div class="post-card__meta">
-    <span data-i18n="published">${ui("published")}</span> ${escapeHtml(post.date)}
+    <span data-i18n="published">${ui("published")}</span> ${postDate(post)}
     <span class="dot">.</span>
     ${translatedText(post.readingMinutes, post.readingMinutesEn)} <span data-i18n="reading_time">${ui("readingTime")}</span>
   </div>
@@ -363,7 +377,7 @@ function renderHome(site, posts, tagCounts, about) {
   const recent = posts.slice(0, 5).map((post) => postCard(post)).join("\n");
   const archiveItems = posts
     .slice(0, 8)
-    .map((post) => `<li><time>${escapeHtml(post.date)}</time><a href="${post.url}">${translatedText(post.title, post.titleEn)}</a></li>`)
+    .map((post) => `<li>${postDate(post)}<a href="${post.url}">${translatedText(post.title, post.titleEn)}</a></li>`)
     .join("\n");
   const tagItems = [...tagCounts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
@@ -405,7 +419,7 @@ function renderHome(site, posts, tagCounts, about) {
     current: "/",
     body,
     statusLeft: "home",
-    statusCenter: `posts: ${posts.length} | tags: ${tagCounts.size} | latest: ${posts[0]?.date ?? "none"}`,
+    statusCenter: `posts: ${posts.length} | tags: ${tagCounts.size} | latest: ${posts[0]?.displayDate ?? "none"}`,
     minibuffer: "new post: add content/posts/*.md, then npm run build",
   });
 }
@@ -417,7 +431,7 @@ function renderPost(site, post) {
   const body = `<article class="post">
   <header class="post__header">
     <div class="post__meta">
-      <span data-i18n="published">${ui("published")}</span> ${escapeHtml(post.date)}
+      <span data-i18n="published">${ui("published")}</span> ${postDate(post)}
       <span class="dot">.</span>
       ${translatedText(post.readingMinutes, post.readingMinutesEn)} <span data-i18n="reading_time">${ui("readingTime")}</span>
     </div>
@@ -444,7 +458,7 @@ ${post.htmlEn ? `<div data-content-lang="zh" lang="zh-CN">${post.html}</div><div
     body,
     ogType: "article",
     statusLeft: "post",
-    statusCenter: `${post.date} | ${post.readingMinutes} min | ${post.tags.length ? post.tags.map((tag) => `#${tag}`).join(" ") : "untagged"}`,
+    statusCenter: `${post.displayDate} | ${post.readingMinutes} min | ${post.tags.length ? post.tags.map((tag) => `#${tag}`).join(" ") : "untagged"}`,
     statusRightHtml: `<a href="/archives/">archives</a><span class="mode-line__sep">|</span><a href="/tags/">tags</a>`,
     minibuffer: `source: content/posts/${post.slug}.md`,
   });
@@ -461,7 +475,7 @@ function renderArchives(site, posts) {
     .map(([year, items]) => `<section class="section ${year === posts[0]?.date.slice(0, 4) ? "section--intro" : ""}">
   <h2>${escapeHtml(year)}</h2>
   <ul class="archive-list">
-${items.map((post) => `    <li><time>${escapeHtml(post.date)}</time><a href="${post.url}">${translatedText(post.title, post.titleEn)}</a></li>`).join("\n")}
+${items.map((post) => `    <li>${postDate(post)}<a href="${post.url}">${translatedText(post.title, post.titleEn)}</a></li>`).join("\n")}
   </ul>
 </section>`)
     .join("\n");
@@ -607,7 +621,7 @@ function rss(site, posts) {
   <title>${escapeHtml(post.title)}</title>
   <link>${escapeHtml(absoluteUrl(site, post.url))}</link>
   <guid>${escapeHtml(absoluteUrl(site, post.url))}</guid>
-  <pubDate>${new Date(`${post.date}T00:00:00Z`).toUTCString()}</pubDate>
+  <pubDate>${new Date(post.publishedAt).toUTCString()}</pubDate>
   <description>${escapeHtml(post.summary)}</description>
 </item>`)
     .join("\n");
