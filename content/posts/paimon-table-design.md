@@ -2,7 +2,7 @@
 title: Paimon（一）表的设计
 date: 2026-11-09
 slug: paimon-table-design
-summary: 先认识 Schema、快照、Manifest 和数据文件的关系，再用订单更新理解表类型、主键表的 LSM 与读写取舍。
+summary: 从建表、写入和查询订单开始，认识 Schema、快照、Manifest 和数据文件，再比较表类型、主键表的 LSM 与读写取舍。
 tags:
   - bigdata
   - Paimon
@@ -11,13 +11,58 @@ draft: false
 
 > Paimon 系列。 [表的查询流程](/2026/11/09/paimon-table-query/) · [表的写入流程](/2026/11/09/paimon-table-write/)
 
-Paimon 把一张逻辑表组织成一组数据文件和元数据文件。数据文件承载记录，元数据描述表的结构、文件的归属，以及每次提交后的表状态。计算引擎通过 Catalog 找到表，再沿着这些元数据读取所需的数据。
+用 SQL 创建一张 Paimon 表，连续写入同一笔订单的变化，查询为什么只返回一行？先从这组操作认识表，再看背后的文件和元数据怎样配合。
 
-理解这套组织关系之后，才能继续讨论更新：一条新记录写到哪里，旧版本如何处理，为什么同一条查询有时需要合并多个文件。本文先看表的整体构成，再用订单的创建和付款展开。 [Paimon 基本概念](https://paimon.apache.org/docs/2.1/concepts/basic-concepts/)
+## 先创建一张订单表
 
-## 一张表由哪些部分构成
+本文的示例采用 **Spark SQL**，假设已经配置名为 `paimon` 的 Paimon Catalog 和 SQL 扩展。环境准备见 [Spark SQL 快速开始](https://paimon.apache.org/docs/2.1/spark/quick-start/)。后续两篇继续使用这张表。
 
-可以先把一张 Paimon 表分成四个部分。
+```sql
+USE paimon.default;
+
+CREATE TABLE orders (
+    dt STRING,
+    id BIGINT,
+    status STRING,
+    amount INT
+) PARTITIONED BY (dt)
+TBLPROPERTIES (
+    'primary-key' = 'dt,id',
+    'bucket' = '2',
+    'bucket-key' = 'id',
+    'merge-engine' = 'deduplicate'
+);
+```
+
+`dt` 表示订单创建日，`id` 表示订单 ID。建表语句还声明了四项选择：按 `dt` 分区，以 `(dt, id)` 标识同一笔订单，按 `id` 分成两个固定桶，同键记录采用 `deduplicate` 合并规则。它们分别影响数据怎样分组、怎样对应已有记录，以及连续写入得到什么结果。
+
+接着依次执行两次写入，分别表示订单创建和付款。付款发生在第二天，订单的创建日仍然保留为 `2026-10-08`。
+
+```sql
+INSERT INTO orders (dt, id, status, amount)
+VALUES ('2026-10-08', 123, 'open', 10);
+
+INSERT INTO orders (dt, id, status, amount)
+VALUES ('2026-10-08', 123, 'paid', 10);
+
+SELECT id, status, amount
+FROM orders
+WHERE dt = '2026-10-08' AND id = 123;
+```
+
+两次写入完成后，查询应得到一条当前记录。
+
+| id | status | amount |
+| --- | --- | --- |
+| 123 | paid | 10 |
+
+虽然使用的都是 `INSERT INTO`，主键表会把相同 key 的输入按规则合并。这里保留最新整行，所以结果从 `open` 变成 `paid`。逻辑结果只有一行，物理上却可能暂时保留多个版本；后面的 LSM 和读写模式，解释的就是这些版本怎样处理。
+
+## SQL 背后，一张表由哪些部分构成
+
+Paimon 把一张逻辑表组织成一组数据文件和元数据文件。数据文件承载记录，元数据描述表的结构、文件的归属，以及每次提交后的表状态。计算引擎通过 Catalog 找到表，再沿着这些元数据读取所需的数据。 [Paimon 基本概念](https://paimon.apache.org/docs/2.1/concepts/basic-concepts/)
+
+对应刚才的建表、写入和查询，可以把一张 Paimon 表分成四个部分。
 
 - **Schema 描述表的定义。** 包括列名、类型、分区键、主键和表选项。表结构变化后，Schema 也会有新的版本，读取时需要用相应的定义解释文件中的记录。 [Schema](https://paimon.apache.org/docs/2.1/concepts/spec/schema/)
 - **Snapshot 描述一次已提交的表状态。** 它引用 Schema 和文件清单等元数据，是读取这次表状态的入口。选择不同的快照，就可能读到不同时间的结果。 [Snapshot](https://paimon.apache.org/docs/2.1/concepts/spec/snapshot/)
@@ -54,17 +99,33 @@ Paimon 把一张逻辑表组织成一组数据文件和元数据文件。数据�
 
 ## 用订单表看 Append 表和主键表的设计目的
 
-假设订单表包含 `dt`、`id`、`status`、`amount`，分别表示创建日、订单 ID、状态和金额。订单 `123` 在 10 月 8 日创建，状态为 `open`；第二天付款，状态变成 `paid`。创建日仍是 `2026-10-08`。
+开头的主键表返回订单当前状态。如果希望保留创建和付款这两个独立事件，可以建立不声明主键的 Append 表。
 
 ```sql
+CREATE TABLE order_events (
+    dt STRING,
+    id BIGINT,
+    status STRING,
+    amount INT
+) PARTITIONED BY (dt);
+
+INSERT INTO order_events (dt, id, status, amount)
+VALUES ('2026-10-08', 123, 'open', 10),
+       ('2026-10-08', 123, 'paid', 10);
+
 SELECT id, status, amount
-FROM orders
-WHERE dt = '2026-10-08'
-  AND id = 123
-  AND status = 'paid';
+FROM order_events
+ORDER BY id, status;
 ```
 
-这条 SQL 希望查询订单当前的付款状态。相同的业务变化，也可以用来分析创建到付款的过程。两种目的，对应不同的表设计。
+这次两条记录都会保留。
+
+| id | status | amount |
+| --- | --- | --- |
+| 123 | open | 10 |
+| 123 | paid | 10 |
+
+同样的业务变化，一张表保留事件明细，另一张表维护当前状态。两种结果对应不同的设计目的。
 
 **Append 表面向不断追加的明细数据。** 访问日志、用户行为、交易流水这类数据，通常希望每次发生的事情都能独立保留，后续按时间、用户或业务维度做统计。订单创建和付款分别写成两条事件，就可以分析从创建到付款花了多久、哪个环节流失最多。Append 表直接保存这些输入，写入和扫描省去了按主键合并版本的工作，适合持续写入和批量分析。重复上报的事件需要在采集或计算链路中去重。如果要从事件明细还原订单当前状态，还需要按业务顺序归并。 [Paimon Append 表](https://paimon.apache.org/docs/2.1/append-table/)
 

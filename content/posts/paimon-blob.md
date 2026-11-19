@@ -2,7 +2,7 @@
 title: Paimon（五）BLOB：大对象文件的设计
 date: 2026-11-19
 slug: paimon-blob
-summary: 从大对象的存储需求出发，解释 BLOB 的条目、长度索引和文件尾怎样配合，以及顺序写入、随机读取与空间回收之间的取舍。
+summary: 先用 SQL 写入和读取二进制内容，再解释 BLOB 条目、长度索引和文件尾怎样配合，以及批量存储、随机读取与空间回收之间的取舍。
 tags:
   - bigdata
   - Paimon
@@ -11,9 +11,66 @@ draft: false
 
 > Paimon 系列。 [上一篇：行标识与 Data Evolution](/2026/11/18/paimon-data-evolution/) · [下一篇：VARIANT：灵活结构与列式读取](/2026/11/19/paimon-variant/)
 
-图片、音频、视频和文档，通常可以表示为长度不一的字节序列。管理这些内容时，存储层需要同时考虑几个问题：怎样避免产生过多小文件，怎样连续写入大对象，以及怎样在需要时只读取其中一份内容。
+图片、音频、视频和文档，通常可以表示为长度不一的字节序列。先看怎样把一段字节写进 Paimon，再讨论它为什么适合单独组织成 BLOB 文件。
 
-Paimon 的 BLOB 格式围绕这些需求组织文件。它把多条变长内容写入同一个文件，再用索引描述各条内容的边界，让批量存储和按位置读取可以配合起来。本文聚焦常规 `.blob` 文件的布局和设计目的。 [BLOB 文件格式](https://paimon.apache.org/docs/2.1/concepts/spec/fileformat/#blob)
+## 先把两段字节写进表
+
+下面使用 **Spark SQL**，假设已配置 Paimon Catalog 并选中 `paimon.default`。示例采用启用 Data Evolution 的 Append 表，内容由 Paimon 管理。
+
+```sql
+USE paimon.default;
+
+CREATE TABLE blob_samples (
+    id BIGINT,
+    name STRING,
+    content BINARY COMMENT '__BLOB_FIELD'
+) TBLPROPERTIES (
+    'row-tracking.enabled' = 'true',
+    'data-evolution.enabled' = 'true'
+);
+
+INSERT INTO blob_samples VALUES
+    (1, 'sample-a', X'010203'),
+    (2, 'sample-b', X'0405');
+```
+
+`X'010203'` 表示三个字节。这里用短内容展示读写，不代表真实图片或文档。实际写入可以由数据处理任务提供完整内容，文件格式负责保存这些字节，不会自动识别它们的媒体含义。
+
+`BINARY` 是 Spark SQL 使用的二进制类型；`__BLOB_FIELD` 是 Paimon 的声明标记，将这一列转换为 BLOB，并采用托管内容文件。行跟踪和 Data Evolution 负责维持普通列与内容数据的对应关系。`id` 是普通列，重复插入同一个值仍会追加新行。 [BLOB 建表与写入](https://paimon.apache.org/docs/2.1/multimodal-table/blob/#creating-a-table)
+
+## 读取内容，与只读普通列有什么区别
+
+写入完成后，可以把内容转成十六进制文本，方便观察返回的字节。
+
+```sql
+SELECT id, hex(content) AS content_hex
+FROM blob_samples
+ORDER BY id;
+```
+
+| id | content_hex |
+| --- | --- |
+| 1 | 010203 |
+| 2 | 0405 |
+
+`hex` 只是为了显示结果；读取 `content` 时返回的是字节内容，应用可以再按图片、音频等格式处理它。
+
+如果只查看名称，可以不请求内容列。
+
+```sql
+SELECT id, name
+FROM blob_samples
+ORDER BY id;
+```
+
+| id | name |
+| --- | --- |
+| 1 | sample-a |
+| 2 | sample-b |
+
+这条查询只需要普通列，可以跳过 BLOB 内容。这里也能看到两层不同的工作：表的读路径找到目标记录，内容文件的读路径再定位所需字节。 [BLOB 查询](https://paimon.apache.org/docs/2.1/multimodal-table/blob/#querying-blob-data)
+
+Paimon 的 BLOB 格式把多条变长内容写入同一个文件，再用索引描述各条内容的边界，让批量存储和按位置读取可以配合起来。下面聚焦常规 `.blob` 文件的布局，解释刚才的读取怎样找到内容，以及这种组织方式的成本。 [BLOB 文件格式](https://paimon.apache.org/docs/2.1/concepts/spec/fileformat/#blob)
 
 ## 为什么把大对象单独组织成文件
 

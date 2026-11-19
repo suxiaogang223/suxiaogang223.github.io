@@ -2,7 +2,7 @@
 title: Paimon（四）行标识与 Data Evolution
 date: 2026-11-18
 slug: paimon-data-evolution
-summary: 从商品图片的描述补充出发，区分业务 ID、Row ID 和文件内位置，解释按列更新怎样减少重写，以及它给读取和维护带来的成本。
+summary: 从建表、补充商品描述和查询结果出发，区分业务 ID、Row ID 和文件内位置，解释按列更新的收益与读写协调成本。
 tags:
   - bigdata
   - Paimon
@@ -14,6 +14,50 @@ draft: false
 第三篇里，删除订单需要先用主键对应旧记录，再找到文件内的位置。继续往后看，如果一行的数据分散在几个文件中，怎样确认它们属于同一行？文件整理之后，这种对应关系又怎样保留？
 
 从这一篇开始，换一张商品素材表。商品图片写入后，后续任务会补充描述、识别属性，再生成向量。描述和向量可能反复更新，而图片本身没有变化。我们希望这些更新尽量复用已有图片，读取时又能把各部分准确拼回同一条记录。本文的商品表采用 Data Evolution 布局，`product_id` 是普通业务列。
+
+## 先更新一条描述，看看哪些值发生变化
+
+下面采用 Spark SQL，假设已配置 Paimon Catalog 和 SQL 扩展，并选中 `paimon.default`。先建一张启用行跟踪和 Data Evolution 的表，图片列使用 Paimon 托管的 BLOB 存储。
+
+```sql
+USE paimon.default;
+
+CREATE TABLE products (
+    product_id STRING,
+    caption STRING,
+    image BINARY COMMENT '__BLOB_FIELD'
+) TBLPROPERTIES (
+    'row-tracking.enabled' = 'true',
+    'data-evolution.enabled' = 'true'
+);
+
+INSERT INTO products VALUES
+    ('P101', '旧描述 A', X'01'),
+    ('P102', '旧描述 B', X'02'),
+    ('P103', '旧描述 C', X'03');
+```
+
+这里的十六进制字节只是读写示例，不是完整图片。`__BLOB_FIELD` 声明内容采用 BLOB 存储，第五篇会专门介绍它。表没有声明主键，`product_id` 不会自动去重；本例每个商品只插入一行。Data Evolution 为这样的 Append 表提供按列更新能力。 [Data Evolution 建表](https://paimon.apache.org/docs/2.1/multimodal-table/data-evolution/) · [BLOB 列声明](https://paimon.apache.org/docs/2.1/multimodal-table/blob/#creating-a-table)
+
+写入完成后，只更新 `P102` 的描述，再查询商品 ID 和描述。
+
+```sql
+UPDATE products
+SET caption = '新描述 B'
+WHERE product_id = 'P102';
+
+SELECT product_id, caption
+FROM products
+ORDER BY product_id;
+```
+
+| product_id | caption |
+| --- | --- |
+| P101 | 旧描述 A |
+| P102 | 新描述 B |
+| P103 | 旧描述 C |
+
+从结果看，只有 `P102` 的描述变了；图片内容没有被修改。后面的关键问题是：底层怎样保留未修改的数据，又怎样让新描述与原来的商品对应起来？
 
 ## 业务 ID、Row ID 和文件内位置各有什么作用
 
@@ -52,13 +96,7 @@ Data Evolution 为 Append 表提供按列更新的数据组织方式。一条逻
 | 101 | P102 | 旧描述 B |
 | 102 | P103 | 旧描述 C |
 
-现在只修改商品 `P102` 的描述。下面的 SQL 表达这次更新的含义。
-
-```sql
-UPDATE products
-SET caption = '新描述 B'
-WHERE product_id = 'P102';
-```
+开头的 `UPDATE products SET caption = '新描述 B' WHERE product_id = 'P102'` 只匹配中间一行。SQL 表达的是修改范围，物理写入还要满足文件的行范围约束。
 
 写入侧先在选定快照中找到匹配行，再确定它所在的文件行范围。对于普通列的部分更新，新描述文件仍覆盖完整的 `[100, 102]` 范围：`101` 写入新值，`100` 和 `102` 写回原来的描述。商品 ID 等未修改列可以继续从已有文件取得，图片文件也可以复用。 [Data Evolution 文件布局](https://paimon.apache.org/docs/2.1/multimodal-table/data-evolution-file-layout/)
 

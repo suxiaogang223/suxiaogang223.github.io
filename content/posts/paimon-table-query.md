@@ -11,9 +11,11 @@ draft: false
 
 > Paimon 系列。 [上一篇：表的设计](/2026/11/09/paimon-table-design/) · [下一篇：表的写入流程](/2026/11/09/paimon-table-write/)
 
-第一篇介绍了表的构成：Schema 解释记录，快照和 Manifest 确定文件集合，分区与桶组织数据。现在沿着一条查询，看这些结构怎样配合起来。
+第一篇建立了主键为 `(dt, id)` 的 `orders` 表，并依次写入订单 `123` 的创建和付款记录。这一篇先看查询结果，再沿着查询解释快照、裁剪和版本合并怎样配合。
 
-继续使用订单表，主键为 `(dt, id)`，按 `id` 固定分桶。订单 `123` 的状态从 `open` 更新为 `paid`，创建日始终是 `2026-10-08`。
+## 同一个订单，为什么只查到付款后的状态
+
+下面继续采用 Spark SQL，在第一篇两次写入已经完成的基础上执行。独立阅读时，可以先使用[第一篇的建表与写入语句](/2026/11/09/paimon-table-design/)。
 
 ```sql
 SELECT id, status, amount
@@ -23,7 +25,27 @@ WHERE dt = '2026-10-08'
   AND status = 'paid';
 ```
 
-下面以仍需读时合并的 MOR 路径为例，合并规则使用 `deduplicate`。假设选定的快照已经包含付款，这条查询应返回当前的 `paid`。读取要同时做到两件事：减少无关数据的扫描，并保留判断当前版本所需的信息。
+预期结果是付款后的状态。
+
+| id | status | amount |
+| --- | --- | --- |
+| 123 | paid | 10 |
+
+再把状态条件改为 `open`。
+
+```sql
+SELECT id, status, amount
+FROM orders
+WHERE dt = '2026-10-08'
+  AND id = 123
+  AND status = 'open';
+```
+
+这次结果为 **0 行**。即使旧文件里还存在 `open`，它也不再是这笔订单的当前状态。查询必须先判断版本关系，才能决定状态条件是否成立。
+
+## 从 SQL 走到文件读取
+
+下面以仍需读时合并的 MOR 路径为例，合并规则使用 `deduplicate`，选定的快照已包含付款。读取要同时做到两件事：减少无关数据的扫描，并保留判断当前版本所需的信息。
 
 <figure>
   <a href="/assets/images/paimon-table-query/query-flow.webp" target="_blank" rel="noopener noreferrer"><img src="/assets/images/paimon-table-query/query-flow.webp" width="1254" height="1254" alt="MOR 查询的手绘流程，从 Snapshot 和 Manifest 到分区与桶裁剪，把 A、B 两个版本组织进同一扫描任务，按主键合并后再过滤状态，得到订单 123 的 paid 记录" loading="lazy" decoding="async" /></a>
@@ -50,7 +72,7 @@ Manifest 中的分区和文件统计，让查询可以在读取数据之前缩�
 
 ## 为什么状态过滤要等到版本合并之后
 
-把查询条件暂时改成 `status = 'open'`。假设旧版 `open` 在 A 文件，新版 `paid` 在 B 文件。如果先用这个状态条件把 B 排除，后续就只能读到旧版，错误地把订单当作未付款。
+开头两条查询的差异，在文件层体现为版本处理的先后。假设旧版 `open` 在 A 文件，新版 `paid` 在 B 文件。如果先用 `status = 'open'` 把 B 排除，后续就只能读到旧版，错误地把订单当作未付款。
 
 正确顺序是把 A 和 B 中同键的记录一起处理，得到当前的 `paid`，再判断是否满足 `status = 'open'`，结果应为空。换回原查询的 `status = 'paid'`，才会返回这笔订单。 [Paimon MOR](https://paimon.apache.org/docs/2.1/primary-key-table/table-mode/#merge-on-read)
 

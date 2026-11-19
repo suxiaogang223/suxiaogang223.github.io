@@ -2,7 +2,7 @@
 title: Paimon（三）表的写入流程
 date: 2026-11-09
 slug: paimon-table-write
-summary: 用同一订单的三次写入，解释路由、缓冲、版本合并、删除和快照提交，以及它们的性能取舍。
+summary: 从订单的写入、删除和字段合并 SQL 出发，解释路由、缓冲、有序文件与快照提交，以及版本处理的性能取舍。
 tags:
   - bigdata
   - Paimon
@@ -13,7 +13,44 @@ draft: false
 
 第二篇从快照找到文件 A 和 B，再把订单 `123` 的多个版本归并成结果。这一篇回到文件产生之前：输入的记录怎样被整理，什么时候对查询可见，删除又怎样让旧行失效。
 
-继续沿用主键为 `(dt, id)` 的订单表，`dt` 保留创建日，按 `id` 固定分桶。第一篇已经说明各种表设计的用途，这里集中看常规主键表的写入过程。文中的 SQL 用来表达输入和预期结果。
+继续采用 Spark SQL，沿用[第一篇创建的订单表](/2026/11/09/paimon-table-design/)。主键为 `(dt, id)`，`dt` 保留创建日，按 `id` 固定分桶。先通过写入前后的查询结果，区分“向表提交什么变化”和“文件里怎样处理这些变化”。
+
+## 先观察两次写入的结果
+
+依次提交下面两份完整状态，并在每次写入完成后查询。即使表里已经有订单 `123`，`deduplicate` 也会按后续输入替换它的整行状态。
+
+```sql
+INSERT INTO orders (dt, id, status, amount)
+VALUES ('2026-10-08', 123, 'open', 10);
+
+SELECT id, status, amount
+FROM orders
+WHERE dt = '2026-10-08' AND id = 123;
+
+INSERT INTO orders (dt, id, status, amount)
+VALUES ('2026-10-08', 123, 'paid', 10);
+
+SELECT id, status, amount
+FROM orders
+WHERE dt = '2026-10-08' AND id = 123;
+```
+
+两次查询分别返回下面的状态，每次都是一行。
+
+| 查询时刻 | id | status | amount |
+| --- | --- | --- | --- |
+| 第一次写入后 | 123 | open | 10 |
+| 第二次写入后 | 123 | paid | 10 |
+
+如果由 SQL 根据条件修改已有订单，付款操作也可以表达为下面的 `UPDATE`，用于替代第二次 `INSERT`。
+
+```sql
+UPDATE orders
+SET status = 'paid'
+WHERE dt = '2026-10-08' AND id = 123;
+```
+
+两种表达都可以让查询看到 `paid`：`INSERT` 直接提供同键的新状态，`UPDATE` 先找到匹配记录再产生修改。它们都需要经过写入与提交，SQL 中的更新并不意味着直接修改旧文件里的几个字节。 [Spark SQL 写入与更新](https://paimon.apache.org/docs/2.1/spark/sql-write/)
 
 ## 先把输入整理成有序文件
 
@@ -38,15 +75,45 @@ draft: false
 
 ## 同一组输入怎样得到四种结果
 
-第一篇按应用场景介绍了四种 merge engine。这里把三条按顺序到达的记录，分别写进采用不同规则的四张独立表。每张表都使用 `(dt, id, status, amount)` 和主键 `(dt, id)`；SQL 中的 `orders` 代表正在比较的那张表。
+第一篇按应用场景介绍了四种 merge engine。先新建一张 `partial-update` 表，看怎样用 SQL 声明“只替换这次提供的非空字段”。这张演示表独立于前面的 `orders`，下面的三次写入从空表开始。
 
 ```sql
-INSERT INTO orders VALUES ('2026-10-08', 123, 'open', 10);
-INSERT INTO orders VALUES ('2026-10-08', 123, NULL, 7);
-INSERT INTO orders VALUES ('2026-10-08', 123, 'paid', NULL);
+CREATE TABLE orders_merge_demo (
+    dt STRING,
+    id BIGINT,
+    status STRING,
+    amount INT
+) PARTITIONED BY (dt)
+TBLPROPERTIES (
+    'primary-key' = 'dt,id',
+    'bucket' = '2',
+    'bucket-key' = 'id',
+    'merge-engine' = 'partial-update'
+);
+
+INSERT INTO orders_merge_demo (dt, id, status, amount)
+VALUES ('2026-10-08', 123, 'open', 10);
+
+INSERT INTO orders_merge_demo (dt, id, status, amount)
+VALUES ('2026-10-08', 123, NULL, 7);
+
+INSERT INTO orders_merge_demo (dt, id, status, amount)
+VALUES ('2026-10-08', 123, 'paid', NULL);
+
+SELECT id, status, amount
+FROM orders_merge_demo
+WHERE dt = '2026-10-08' AND id = 123;
 ```
 
-图中省略相同的主键，只展示状态和金额。聚合表对状态取最后一个非空值，对金额求和。这个例子按输入顺序确定版本。
+结果保留前一次更新的金额，同时得到新的状态。
+
+| id | status | amount |
+| --- | --- | --- |
+| 123 | paid | 7 |
+
+如果比较其他规则，应分别用新表名建空表，在建表时选择相应的 `merge-engine`，再依次执行同样三次输入。聚合例子还需设置 `'fields.amount.aggregate-function' = 'sum'` 和 `'fields.status.aggregate-function' = 'last_non_null_value'`。这样比较的是同一组输入在不同规则下的结果，不会混入前面演示表的历史数据。 [合并规则](https://paimon.apache.org/docs/2.1/primary-key-table/merge-engine/) · [聚合函数配置](https://paimon.apache.org/docs/2.1/primary-key-table/merge-engine/aggregation/)
+
+图中省略相同的主键，只展示状态和金额。这个例子按三次独立提交的先后确定版本。
 
 <figure>
   <a href="/assets/images/paimon-table-write/engines.webp" target="_blank" rel="noopener noreferrer"><img src="/assets/images/paimon-table-write/engines.webp" width="1536" height="1024" alt="三条同键记录在四种 merge engine 下的合并结果" loading="lazy" decoding="async" /></a>
@@ -65,12 +132,18 @@ INSERT INTO orders VALUES ('2026-10-08', 123, 'paid', NULL);
 
 ## DELETE 怎样找到并处理旧行
 
-回到 `deduplicate` 表，删除订单 `123`。
+回到前面的 `deduplicate` 表 `orders`，删除订单 `123`，再读一次。
 
 ```sql
 DELETE FROM orders
 WHERE dt = '2026-10-08' AND id = 123;
+
+SELECT id, status, amount
+FROM orders
+WHERE dt = '2026-10-08' AND id = 123;
 ```
+
+删除提交完成后，查询结果为 **0 行**。这是逻辑记录消失的结果；旧文件中的内容怎样失效、空间何时回收，还需要继续看下面的物理处理过程。
 
 这里有两次不同的定位。执行 SQL 时，先按条件找到需要删除的逻辑记录，再把带主键的删除记录交给写入链路；数据库变更流也可以直接提供这样的删除记录。后续处理旧版本时，Paimon 再用这个主键对应已有数据。 [Paimon 记录与删除](https://paimon.apache.org/docs/2.1/primary-key-table/sequence-rowkind/)
 

@@ -2,18 +2,60 @@
 title: Paimon（六）VARIANT：灵活结构与列式读取
 date: 2026-11-19
 slug: paimon-variant
-summary: 从半结构化数据的存储需求出发，解释 VARIANT 的二进制表示、按路径读取和 Shredding，以及结构灵活性、数据保真与查询效率之间的取舍。
+summary: 先用 SQL 写入不同结构的对象并提取字段，再解释 VARIANT 的二进制表示、路径读取和 Shredding，以及灵活性、数据保真与查询效率之间的取舍。
 tags:
   - bigdata
   - Paimon
 draft: false
 ---
 
-> Paimon 系列。 [表的设计](/2026/11/09/paimon-table-design/) · [上一篇：BLOB：大对象文件的设计](/2026/11/19/paimon-blob/)
+> Paimon 系列。 [表的设计](/2026/11/09/paimon-table-design/) · [上一篇：BLOB：大对象文件的设计](/2026/11/19/paimon-blob/) · [下一篇：VECTOR：向量表示与存储](/2026/11/19/paimon-vector/)
 
 有些数据的结构会不断变化：一条记录多出几个字段，另一条记录缺少同名字段，同一个路径上的值也可能具有不同类型。事件属性、模型输出和嵌套文档经常具有这种特点。
 
 把每个变化都变成表结构调整，会增加字段管理的负担；直接保存为 JSON 字符串，又需要在查询时解释文本中的结构与类型。VARIANT 的设计目的，是在保留这种结构灵活性的同时，让存储和读取能够利用值本身的类型与边界。 [Paimon VARIANT](https://paimon.apache.org/docs/2.1/multimodal-table/variant/)
+
+## 先写入两个结构不同的对象
+
+下面采用 **Spark 4.0 及以上版本的 SQL**，并使用支持 VARIANT 的 Paimon 连接器。假设已配置 Paimon Catalog，选中 `paimon.default`。这里采用 Parquet 文件，VARIANT 本身不要求开启 Data Evolution。 [VARIANT 的 SQL 使用条件](https://paimon.apache.org/docs/2.1/multimodal-table/variant/#overview)
+
+```sql
+USE paimon.default;
+
+CREATE TABLE variant_samples (
+    id BIGINT,
+    payload VARIANT
+) USING paimon
+TBLPROPERTIES (
+    'file.format' = 'parquet'
+);
+
+INSERT INTO variant_samples VALUES
+    (1, parse_json('{"a":7,"label":"sample-a"}')),
+    (2, parse_json('{"a":9,"active":true}'));
+```
+
+第一行有 `label`，第二行有 `active`。它们都可以写进同一个 `payload` 列，不必为每种内部结构新增一组表字段。`parse_json` 把 JSON 文本转换为带类型和结构的 VARIANT 值；文件里保存的是相应的二进制表示。
+
+## 用路径提取字段，再看返回结果
+
+```sql
+SELECT
+    id,
+    variant_get(payload, '$.a', 'int') AS a,
+    variant_get(payload, '$.label', 'string') AS label
+FROM variant_samples
+ORDER BY id;
+```
+
+| id | a | label |
+| --- | --- | --- |
+| 1 | 7 | sample-a |
+| 2 | 9 | NULL |
+
+`$.a` 表示对象里的 `a` 字段，`int` 指定 SQL 返回类型；第二行没有 `label`，所以该路径提取结果为 SQL `NULL`。路径还可以进入嵌套对象或数组，例如 `$.user.id`、`$.items[0]`。值的类型不能按要求转换时，需要遵循所用函数的转换规则。 [路径查询与类型转换](https://paimon.apache.org/docs/2.1/multimodal-table/variant/#write-and-query-variant)
+
+这个例子展示了两种能力：同一列容纳不同结构，查询按路径得到类型化的结果。但 SQL 只取 `a`，是否就意味着文件也只读取 `a` 的数据？下面从二进制编码和物理布局解释这件事。
 
 ## 灵活结构为什么需要专门的表示
 
@@ -51,7 +93,7 @@ Paimon 使用 Parquet 的 Variant 二进制编码。普通布局中，一个 VAR
 
 ## 按路径读取，是否就能少读文件
 
-路径描述需要访问哪一层、哪一个字段或数组元素。读取过程沿着对象与数组的结构找到子值，再按查询需要处理其类型。
+开头的 `variant_get(payload, '$.a', 'int')` 描述需要访问哪个字段，以及希望得到的 SQL 类型。读取过程沿着对象与数组的结构找到子值，再按查询需要处理其类型。
 
 但路径访问能力与列裁剪能力有不同的边界。在普通 VARIANT 布局中，内部字段仍编码在同一个二进制 `value` 中。只请求其中一个路径，可以减少对其他子值的解释，却不意味着这个路径已经成为独立的 Parquet 列。读取它仍需要访问相应的二进制值数据。 [普通 VARIANT 布局](https://paimon.apache.org/docs/2.1/multimodal-table/variant/#plain-variant)
 
@@ -94,3 +136,5 @@ VARIANT 用二进制表示容纳变化的结构，再通过 Shredding 为常用�
 - **类型化读取与类型回退。** 路径类型越稳定，越多值可以利用类型化子列；保留不同类型的能力，则需要额外的回退表示，以及读取、转换和过滤时的处理。
 - **解析收益与编码开销。** 二进制结构减少了重复解释 JSON 文本的工作，但字典、偏移和类型标记都有空间与处理成本，拆列还会增加子列及元数据。最终占用并不保证比 JSON 文本更小。
 - **结构灵活性与固定列的效率。** 经常变化的字段适合保留在 VARIANT 中；长期作为关联键、过滤条件或聚合维度的稳定字段，可以直接建成普通类型列，减少路径提取和类型处理的工作。
+
+下一篇介绍 VECTOR，先用 SQL 写入和查询向量，再看固定维度、数值精度与独立存储怎样影响读写。 [下一篇：VECTOR：向量表示与存储](/2026/11/19/paimon-vector/)
